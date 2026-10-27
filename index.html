@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- video.twimg.com 对第三方 Referer 返回 403，不发 Referer 才能播放 -->
+<meta name="referrer" content="no-referrer">
+<title>AI Viral Collection · AI 爆款合集</title>
+<style>
+:root{--bg:#0b0b0f;--card:#15151c;--line:#26262f;--text:#ececf1;--mute:#8b8b98;--green:#2ecc71;--red:#ff4d4f;--chip:#1e1e27;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif}
+header{padding:40px 32px 8px;max-width:1440px;margin:0 auto}
+h1{margin:0;font-size:34px;letter-spacing:-.02em;font-weight:800}
+h1 span{background:linear-gradient(90deg,#c6ff3d,#3dd6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mute);margin-top:6px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
+.btn{font:inherit;font-size:13px;line-height:1.2;text-decoration:none;color:var(--text);background:#22222c;border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.btn:hover{background:#2d2d3a}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn.primary{background:linear-gradient(90deg,#c6ff3d,#3dd6ff);color:#071018;font-weight:700;border-color:transparent}
+.btn.primary:hover{filter:brightness(1.05);background:linear-gradient(90deg,#c6ff3d,#3dd6ff)}
+.hint,.asof,.casof,.flabel{color:var(--mute);font-size:12px}
+.hint{flex:1 1 220px}
+.asof{margin-left:auto}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+.pair{display:flex;align-items:center;gap:8px}
+.seg{display:flex;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{background:none;border:0;color:var(--mute);padding:6px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.seg button.on{background:#fff;color:#000;font-weight:600}
+.seg button .n{opacity:.6;margin-left:4px;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--mute);font-size:12px;margin-top:14px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.criteria{margin-top:16px;border:1px solid var(--line);border-radius:16px;background:var(--card);padding:0 16px}
+.criteria[hidden]{display:none}
+.criteria summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 0;font-weight:700}
+.criteria summary::-webkit-details-marker{display:none}
+.criteria summary:before{content:"▸";color:var(--mute);font-weight:400;margin-right:8px}
+.criteria[open] summary:before{content:"▾"}
+.casof{font-weight:400}
+.cgroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:0 0 14px}
+.cgroup{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#12121a;min-width:0}
+.cgroup h3{margin:0;font-size:14px}
+.cgroup.focus{grid-column:1/-1;border-color:#c6ff3d;background:rgba(198,255,61,.08);box-shadow:inset 0 0 0 1px rgba(198,255,61,.35)}
+.cgroup.focus h3{color:#d6ff7a}
+.crow{display:grid;grid-template-columns:6.5em 1fr;gap:4px 10px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.cgroup h3 + .crow,.crow.one{border-top:0}
+.crow.one{grid-template-columns:1fr;padding-top:8px}
+.ci{color:var(--mute);overflow-wrap:anywhere}
+.cv{overflow-wrap:anywhere;white-space:pre-wrap}
+main{max-width:1440px;margin:0 auto;padding:12px 32px 60px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.card{background:var(--card);border:2px solid var(--red);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s;min-width:0}
+.card:hover{transform:translateY(-3px)}
+.card.remade{border-color:var(--green)}
+.cover{position:relative;aspect-ratio:3/4;background:#000;overflow:hidden}
+.cover video,.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.card.notpl .cover video,.card.notpl .cover img{filter:grayscale(1);opacity:.55}
+.ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mute);background:repeating-linear-gradient(45deg,#111 0 12px,#16161d 12px 24px);font-size:13px}
+.badges{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;z-index:2}
+.badge{background:rgba(0,0,0,.7);border:1px solid #444;color:#ddd;font-size:11px;padding:2px 8px;border-radius:999px;backdrop-filter:blur(4px)}
+.badge.new{background:#c6ff3d;color:#071018;border-color:transparent;font-weight:800;letter-spacing:.04em}
+.tag{position:absolute;top:10px;right:10px;z-index:2;font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+.tag.g{background:var(--green);color:#04210f}
+.tag.r{background:var(--red);color:#fff}
+.sw{position:absolute;bottom:10px;left:10px;z-index:2;display:flex;background:rgba(0,0,0,.7);border-radius:999px;padding:2px}
+.sw button{border:0;background:none;color:#bbb;font-size:11px;padding:3px 10px;border-radius:999px;cursor:pointer}
+.sw button.on{background:#fff;color:#000}
+.body{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
+.t{font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.meta{color:var(--mute);font-size:12px}
+.stats:empty{display:none}
+.fx{font-size:13px;color:#c9c9d3;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11px;color:var(--mute)}
+.chip.ok{color:var(--green);border-color:#1f5a37}
+.chip.warn{color:#f5b041;border-color:#5a4a1f}
+.chip.bad{color:var(--red);border-color:#5a1f22}
+.reason{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket{border:1px solid var(--line);border-radius:10px;background:#101018;padding:0 10px 8px}
+.ticket summary{cursor:pointer;padding:8px 0;font-size:12px;font-weight:700;list-style:none}
+.ticket summary::-webkit-details-marker{display:none}
+.ticket summary:before{content:"▸ ";color:var(--mute);font-weight:400}
+.ticket[open] summary:before{content:"▾ "}
+.kvs{display:grid;grid-template-columns:7.2em 1fr;gap:4px 8px;margin:0 0 8px;font-size:12px}
+.kvs dt{color:var(--mute)}
+.kvs dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ticket button{font:inherit;font-size:12px;color:var(--text);background:#22222c;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+.ticket button:hover{background:#2d2d3a}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:6px}
+.acts a,.acts button{font:inherit;font-size:12px;text-decoration:none;color:var(--text);background:#22222c;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+.acts a:hover,.acts button:hover:not(:disabled){background:#2d2d3a}
+.acts button:disabled{opacity:.45;cursor:not-allowed}
+.acts a[hidden],.acts button[hidden]{display:none !important}
+.acts a.dl{flex:1 1 100%;text-align:center;background:linear-gradient(90deg,#c6ff3d,#3dd6ff);color:#071018;font-weight:700;border-color:transparent;padding:8px 12px}
+.acts a.dl:hover{filter:brightness(1.05);background:linear-gradient(90deg,#c6ff3d,#3dd6ff)}
+.state{grid-column:1/-1;padding:48px 8px;text-align:center;color:var(--mute);font-size:15px;line-height:1.7}
+.state.err{color:#ffd0d0;background:#1a1214;border:1px solid #5a1f22;border-radius:16px;padding:28px 18px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#fff;color:#000;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:5;max-width:min(90vw,420px);text-align:center}
+.toast.on{opacity:1}
+footer{color:var(--mute);font-size:12px;text-align:center;padding:0 32px 40px}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #c6ff3d;outline-offset:2px}
+a{color:#9ad7ff}
+.acts a,.tools a.btn{color:inherit}
+.acts a.dl,.tools a.btn.primary{color:#071018}
+@media (max-width:720px){
+  header{padding:24px 16px 8px}
+  h1{font-size:26px}
+  main{padding:8px 16px 48px;grid-template-columns:1fr}
+  .asof{margin-left:0}
+  .tools .btn.primary{flex:1 1 100%;text-align:center}
+  .kvs,.crow{grid-template-columns:1fr}
+  .kvs dt{margin-top:4px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>AI</span> Viral Collection · AI 爆款合集</h1>
+  <div class="sub">原帖、效果、模型、Prompt 与复刻进度一览</div>
+  <div class="tools">
+    <a class="btn primary" id="dl-all" target="_blank" rel="noopener noreferrer">⬇ 一键下载全部视频</a>
+    <span class="hint">打开后点右上角『下载』即可打包下载</span>
+    <a class="btn" id="edit-link" target="_blank" rel="noopener noreferrer">编辑状态（Google 表格）</a>
+    <button class="btn" id="refresh" type="button">刷新</button>
+    <span class="asof" id="asof">数据更新于 —</span>
+  </div>
+  <div class="bar">
+    <div class="seg" id="f1" role="group" aria-label="复刻状态"></div>
+    <div class="seg" id="f2" role="group" aria-label="类型"></div>
+    <div class="seg" id="f3" role="group" aria-label="是否适合做模板"></div>
+    <div class="pair">
+      <span class="flabel">优先级</span>
+      <div class="seg" id="f4" role="group" aria-label="优先级"></div>
+    </div>
+    <div class="pair">
+      <span class="flabel">排序</span>
+      <div class="seg" id="sort" role="group" aria-label="排序"></div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>绿框：已复刻</span>
+    <span><i style="background:var(--red)"></i>红框：未复刻</span>
+    <span><i style="background:#666"></i>封面置灰 + 「模版待上线」：站内模版未上线</span>
+    <span><i style="background:#c6ff3d"></i>NEW：48 小时内新收录</span>
+  </div>
+  <details class="criteria" id="criteria" hidden>
+    <summary>
+      <span>当前搜集标准</span>
+      <span class="casof" id="criteria-asof"></span>
+    </summary>
+    <div class="cgroups" id="criteria-body"></div>
+  </details>
+</header>
+<main id="grid">
+  <noscript><div class="state err">请启用 JavaScript 以加载表格。</div></noscript>
+  <div class="state">正在加载数据…</div>
+</main>
+<footer>素材来自原帖公开媒体，版权归原作者。</footer>
+<div class="toast" id="toast" role="status"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
