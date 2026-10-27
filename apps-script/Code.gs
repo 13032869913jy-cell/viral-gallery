@@ -1,3 +1,5 @@
+/** @OnlyCurrentDoc */
+
 /**
  * Web app bound to the collection spreadsheet.
  * Script properties (Project settings → Script properties):
@@ -9,7 +11,6 @@
  *   DAILY_LIMIT         optional, default 10
  * Do not log the passcode or the webhook key.
  */
-var SHEET_ID = "18GpxBCwT-uvyMX2q3Rr_byo31Lw1fQTdWwDlOBfzHec";
 var REQUESTS_TAB = "requests";
 var REQUEST_HEADERS = [
   "request_id",
@@ -156,7 +157,7 @@ function notifyWebhook_(props, payload) {
 }
 
 function spreadsheet_() {
-  return SpreadsheetApp.openById(SHEET_ID);
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 function ensureRequests_(ss) {
