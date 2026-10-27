@@ -43,15 +43,9 @@ h1 span{background:linear-gradient(90deg,#c6ff3d,#3dd6ff);-webkit-background-cli
 .btn.tiny{padding:4px 10px;font-size:12px}
 .search{margin-top:16px;border:1px solid var(--line);border-radius:16px;background:var(--card);padding:14px 16px 16px}
 .search h2,.search h3{margin:0;font-size:16px}
-.search h3{margin-top:14px;font-size:14px}
-.search-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}
-.search-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute);flex:1 1 180px}
-.search-form label.check{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;padding-bottom:8px}
-.search-form input{font:inherit;font-size:14px;color:var(--text);background:#101018;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-.search-form input:disabled,.search-form .btn:disabled{opacity:.55;cursor:not-allowed}
-.search-msg{flex:1 1 100%;margin:0;min-height:1.4em;color:var(--text)}
-.search-msg.bad{color:#ffb4b4}
-.search-msg.ok{color:var(--green)}
+.search h3{margin-top:16px;font-size:14px}
+.search-note{margin:8px 0 0;color:var(--mute);font-size:13px;max-width:62em}
+.search .btn.primary{display:inline-block;margin-top:12px}
 .reqs{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .req{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#12121a}
 .req-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -131,7 +125,8 @@ a{color:#9ad7ff}
   h1{font-size:26px}
   main{padding:8px 16px 48px;grid-template-columns:1fr}
   .asof{margin-left:0}
-  .tools .btn.primary,.search-form .btn{flex:1 1 100%;text-align:center}
+  .tools .btn.primary{flex:1 1 100%;text-align:center}
+  .search .btn.primary{display:block;width:100%;text-align:center}
   .criteria-actions{margin-left:0}
   .kvs,.crow{grid-template-columns:1fr}
   .kvs dt{margin-top:4px}
@@ -181,20 +176,8 @@ a{color:#9ad7ff}
   </details>
   <section class="search" id="search-panel">
     <h2>手动搜索热点</h2>
-    <form class="search-form" id="search-form" autocomplete="off">
-      <label>关键词
-        <input id="search-keyword" name="keyword" type="text" maxlength="60" autocomplete="off">
-      </label>
-      <label>备注
-        <input id="search-note" name="note" type="text" maxlength="500" autocomplete="off">
-      </label>
-      <label>口令
-        <input id="search-pass" name="passcode" type="password" autocomplete="off">
-      </label>
-      <label class="check"><input id="search-remember" type="checkbox">记住口令</label>
-      <button class="btn primary" id="search-submit" type="submit">提交搜索</button>
-      <p class="search-msg" id="search-msg" role="status"></p>
-    </form>
+    <p class="search-note">在表格「搜索请求」里新起一行填关键词（可加备注），状态留空即可。工作日 10:00–19:30 每 30 分钟处理一次，每天最多 10 次。需表格编辑权限。</p>
+    <a class="btn primary" id="search-open" href="https://docs.google.com/spreadsheets/d/18GpxBCwT-uvyMX2q3Rr_byo31Lw1fQTdWwDlOBfzHec/edit#gid=1925172371" target="_blank" rel="noopener noreferrer">去提交搜索</a>
     <h3>搜索请求</h3>
     <div id="request-list" class="meta">正在读取搜索请求…</div>
   </section>
