@@ -1,0 +1,47 @@
+name: 部署静态页面
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v5
+
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Try to turn Pages on and set the source to GitHub Actions.
+          # The default token sometimes cannot do this; if the step fails,
+          # set Settings → Pages → Source to GitHub Actions once.
+          enablement: true
+
+      - name: 整理站点文件
+        run: |
+          mkdir -p _site
+          cp index.html config.js app.js _site/
+
+      - name: 上传产物
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: 部署
+        id: deployment
+        uses: actions/deploy-pages@v4
