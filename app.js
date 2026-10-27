@@ -40,11 +40,15 @@
     ],
   };
 
-  var state = { f1: "all", f2: "all", f3: "all", f4: "all", sort: "new" };
+  var state = { f1: "all", f2: "all", f3: "all", f4: "all", sort: "new", source: "" };
+  var PASS_KEY = "gallery-search-passcode";
   var cards = [];
   var criteriaShown = false;
   var io = null;
   var loading = false;
+  var requestStatuses = null;
+  var pollTimer = null;
+  var activeCfg = null;
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
@@ -346,6 +350,7 @@
       if (!found) found = defs[0];
       if (!found[2](c)) return false;
     }
+    if (current.source && c.source !== current.source) return false;
     return true;
   }
 
@@ -563,6 +568,81 @@
     return latestStamp(rows.map(function (r) { return r.updatedAt; }), null);
   }
 
+  function manualSource(keyword) {
+    return "手动搜索：" + String(keyword || "").trim();
+  }
+
+  function mapRequests(records) {
+    var out = [];
+    records.forEach(function (row, index) {
+      var createdAt = cell(row, "created_at");
+      var item = {
+        request_id: cell(row, "request_id"),
+        keyword: cell(row, "keyword"),
+        note: cell(row, "note"),
+        status: cell(row, "status"),
+        createdAt: createdAt,
+        createdMs: parseTime(createdAt),
+        startedAt: cell(row, "started_at"),
+        finishedAt: cell(row, "finished_at"),
+        addedCount: cell(row, "added_count"),
+        addedIds: cell(row, "added_ids"),
+        resultNote: cell(row, "result_note"),
+        index: index,
+      };
+      if (!item.request_id && !item.keyword && !item.status) return;
+      if (!item.request_id) item.request_id = "row-" + (index + 1);
+      out.push(item);
+    });
+    return out;
+  }
+
+  function latestRequests(rows, limit) {
+    var n = limit == null ? 10 : limit;
+    return rows.slice().sort(function (a, b) {
+      var ta = a.createdMs == null ? -Infinity : a.createdMs;
+      var tb = b.createdMs == null ? -Infinity : b.createdMs;
+      if (tb !== ta) return tb - ta;
+      return b.index - a.index;
+    }).slice(0, n);
+  }
+
+  function completionNeedsItemsRefresh(previous, rows) {
+    if (!previous) return false;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].status === "已完成" && previous[rows[i].request_id] !== "已完成") return true;
+    }
+    return false;
+  }
+
+  function statusMap(rows) {
+    var map = {};
+    rows.forEach(function (row) { map[row.request_id] = row.status; });
+    return map;
+  }
+
+  function requestChipClass(status) {
+    if (status === "已完成") return "ok";
+    if (status === "失败" || status === "已拒绝") return "bad";
+    if (status === "搜索中") return "run";
+    if (status === "排队中") return "warn";
+    return "";
+  }
+
+  function requestsUrls(cfg) {
+    var urls = [];
+    if (!cfg) return urls;
+    if (cfg.requestsCsvUrl) urls.push(cfg.requestsCsvUrl);
+    if (cfg.sheetId && cfg.requestsSheetName) {
+      var built = "https://docs.google.com/spreadsheets/d/" + cfg.sheetId + "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(cfg.requestsSheetName);
+      if (urls.indexOf(built) === -1) urls.push(built);
+    }
+    if (cfg.sheetId && cfg.requestsGid) {
+      urls.push("https://docs.google.com/spreadsheets/d/" + cfg.sheetId + "/export?format=csv&gid=" + encodeURIComponent(String(cfg.requestsGid)));
+    }
+    return urls;
+  }
+
   function criteriaUrls(cfg) {
     var urls = [];
     if (!cfg) return urls;
@@ -745,6 +825,12 @@
       ? list.map(function (c) { return cardHtml(c, now); }).join("")
       : '<div class="state">当前筛选下没有条目。</div>';
     observeVideos(grid);
+    var banner = document.getElementById("source-banner");
+    var bannerText = document.getElementById("source-banner-text");
+    if (banner) {
+      banner.hidden = !state.source;
+      if (bannerText) bannerText.textContent = state.source || "";
+    }
   }
 
   function showState(kind, text) {
@@ -922,6 +1008,216 @@
     });
   }
 
+  function readStoredPass() {
+    try { return localStorage.getItem(PASS_KEY) || ""; } catch (e) { return ""; }
+  }
+
+  function writeStoredPass(value) {
+    try {
+      if (value) localStorage.setItem(PASS_KEY, value);
+      else localStorage.removeItem(PASS_KEY);
+    } catch (e) {}
+  }
+
+  function setSearchMessage(text, kind) {
+    var el = document.getElementById("search-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "search-msg" + (kind ? " " + kind : "");
+  }
+
+  function renderRequestList(rows) {
+    var host = document.getElementById("request-list");
+    if (!host) return;
+    var latest = latestRequests(rows, 10);
+    if (!latest.length) {
+      host.innerHTML = '<p class="meta">还没有搜索请求。</p>';
+      return;
+    }
+    host.innerHTML = '<ul class="reqs">' + latest.map(function (row) {
+      var when = row.createdMs != null ? formatBeijing(row.createdMs) : (row.createdAt || "—");
+      var note = row.resultNote ? '<div class="reason" title="' + esc(row.resultNote) + '">' + linkify(row.resultNote) + "</div>" : "";
+      var link = row.keyword
+        ? '<a href="#grid" data-search-keyword="' + esc(row.keyword) + '">查看收录</a>'
+        : "";
+      return '<li class="req"><div class="req-top"><strong>' + esc(row.keyword || "（无关键词）") + "</strong>" +
+        '<span class="chip ' + requestChipClass(row.status) + '">' + esc(row.status || "—") + "</span>" +
+        '<span class="meta">' + esc(when) + "</span></div>" + note + link + "</li>";
+    }).join("") + "</ul>";
+  }
+
+  function hasPending(rows) {
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].status === "排队中" || rows[i].status === "搜索中") return true;
+    }
+    return false;
+  }
+
+  function scheduleRequestPoll(rows) {
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = null;
+    if (!hasPending(rows)) return;
+    pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, 20000);
+  }
+
+  function refreshRequests(cfg) {
+    if (!cfg) return Promise.resolve();
+    var urls = requestsUrls(cfg);
+    if (!urls.length) {
+      var emptyHost = document.getElementById("request-list");
+      if (emptyHost) emptyHost.innerHTML = '<p class="meta">未配置搜索请求表。</p>';
+      return Promise.resolve();
+    }
+    return fetchCsv(urls, function (headers) {
+      return headers.indexOf("request_id") !== -1 || headers.indexOf("keyword") !== -1 || headers.indexOf("status") !== -1;
+    }).then(function (got) {
+      var rows = mapRequests(rowsToRecords(got.rows));
+      var reload = completionNeedsItemsRefresh(requestStatuses, rows);
+      requestStatuses = statusMap(rows);
+      renderRequestList(rows);
+      scheduleRequestPoll(rows);
+      if (reload) return reloadItems(cfg).catch(function () {});
+    }).catch(function () {
+      var host = document.getElementById("request-list");
+      if (host && !host.querySelector(".req")) host.innerHTML = '<p class="meta">暂时读不到搜索请求。</p>';
+      if (hasPendingMap(requestStatuses)) {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, 20000);
+      }
+    });
+  }
+
+  function hasPendingMap(map) {
+    if (!map) return false;
+    for (var key in map) {
+      if (Object.prototype.hasOwnProperty.call(map, key) && (map[key] === "排队中" || map[key] === "搜索中")) return true;
+    }
+    return false;
+  }
+
+  function reloadItems(cfg) {
+    var itemsUrls = [cfg.itemsCsvUrl, cfg.itemsCsvFallbackUrl].filter(Boolean);
+    return fetchCsv(itemsUrls, function (headers) {
+      return headers.indexOf("id") !== -1 || headers.indexOf("title") !== -1;
+    }).then(function (got) {
+      var fetchedAt = Date.now();
+      cards = mapItems(rowsToRecords(got.rows));
+      var stamp = latestStamp(cards.map(function (c) { return c.updatedAt; }), fetchedAt);
+      setAsof("数据更新于 " + (stamp || "—"));
+      render();
+    });
+  }
+
+  function applySearchSource(keyword) {
+    state.source = manualSource(keyword);
+    state.f1 = "all";
+    state.f2 = "all";
+    state.f3 = "all";
+    state.f4 = "all";
+    render();
+    var grid = document.getElementById("grid");
+    if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function setupSearch(cfg) {
+    var form = document.getElementById("search-form");
+    if (!form) return;
+    var keyword = document.getElementById("search-keyword");
+    var note = document.getElementById("search-note");
+    var pass = document.getElementById("search-pass");
+    var remember = document.getElementById("search-remember");
+    var submit = document.getElementById("search-submit");
+    var endpoint = String((cfg && cfg.APPS_SCRIPT_URL) || "").trim();
+    var stored = readStoredPass();
+    if (stored && pass && remember) {
+      pass.value = stored;
+      remember.checked = true;
+    }
+    if (!endpoint) {
+      [keyword, note, pass, remember, submit].forEach(function (el) { if (el) el.disabled = true; });
+      setSearchMessage("未配置", "bad");
+    }
+    if (remember && pass) {
+      remember.addEventListener("change", function () {
+        if (remember.checked) writeStoredPass(pass.value);
+        else writeStoredPass("");
+      });
+      pass.addEventListener("input", function () {
+        if (remember.checked) writeStoredPass(pass.value);
+      });
+    }
+    var list = document.getElementById("request-list");
+    if (list) {
+      list.addEventListener("click", function (e) {
+        var link = e.target.closest("[data-search-keyword]");
+        if (!link) return;
+        e.preventDefault();
+        applySearchSource(link.dataset.searchKeyword || "");
+      });
+    }
+    var clear = document.getElementById("source-clear");
+    if (clear) {
+      clear.addEventListener("click", function () {
+        state.source = "";
+        render();
+      });
+    }
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!endpoint) {
+        setSearchMessage("未配置", "bad");
+        return;
+      }
+      var word = keyword ? keyword.value.trim() : "";
+      var extra = note ? note.value.trim() : "";
+      var code = pass ? pass.value : "";
+      if (!word) {
+        setSearchMessage("请填写关键词", "bad");
+        return;
+      }
+      if (word.length > 60) {
+        setSearchMessage("关键词不能超过 60 个字", "bad");
+        return;
+      }
+      if (!String(code).trim()) {
+        setSearchMessage("请填写口令", "bad");
+        return;
+      }
+      if (remember && remember.checked) writeStoredPass(code);
+      if (submit) submit.disabled = true;
+      setSearchMessage("正在提交…", "");
+      fetch(endpoint, {
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ keyword: word, note: extra, passcode: code }),
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = JSON.parse(text); } catch (err) { data = {}; }
+          if (!data.message) data.message = res.ok ? "成功" : "提交失败";
+          data.httpOk = res.ok;
+          return data;
+        });
+      }).then(function (data) {
+        setSearchMessage(data.message || "提交失败", data.ok ? "ok" : "bad");
+        if (data.ok && keyword) keyword.value = "";
+        if (data.ok && note) note.value = "";
+        if (!data.ok) return;
+        return refreshRequests(cfg).then(function () {
+          if (!pollTimer) pollTimer = setTimeout(function () { refreshRequests(cfg); }, 20000);
+        });
+      }).catch(function () {
+        setSearchMessage("提交失败", "bad");
+      }).then(function () {
+        if (submit && endpoint) submit.disabled = false;
+      });
+    });
+  }
+
   function mount(doc) {
     if (!doc || !doc.getElementById || !doc.getElementById("grid")) return;
     var cfg = root.GALLERY_CONFIG;
@@ -933,10 +1229,21 @@
     }
     if (edit && cfg.sheetEditUrl) edit.href = cfg.sheetEditUrl;
     if (dl && cfg.driveFolderUrl) dl.href = cfg.driveFolderUrl;
+    var criteriaEdit = doc.getElementById("criteria-edit");
+    if (criteriaEdit) {
+      if (cfg.criteriaEditUrl) criteriaEdit.href = cfg.criteriaEditUrl;
+      criteriaEdit.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    }
+    activeCfg = cfg;
+    setupSearch(cfg);
     bindOnce();
     var refresh = doc.getElementById("refresh");
-    if (refresh) refresh.addEventListener("click", function () { load(cfg); });
+    if (refresh) refresh.addEventListener("click", function () {
+      load(cfg);
+      refreshRequests(cfg);
+    });
     load(cfg);
+    refreshRequests(cfg);
   }
 
   var api = {
@@ -955,6 +1262,13 @@
     criteriaHtml: criteriaHtml,
     criteriaStamp: criteriaStamp,
     criteriaUrls: criteriaUrls,
+    requestsUrls: requestsUrls,
+    mapRequests: mapRequests,
+    latestRequests: latestRequests,
+    manualSource: manualSource,
+    completionNeedsItemsRefresh: completionNeedsItemsRefresh,
+    statusMap: statusMap,
+    requestChipClass: requestChipClass,
     hasTicket: hasTicket,
     ticketText: ticketText,
     cardHtml: cardHtml,
