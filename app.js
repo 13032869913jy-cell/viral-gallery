@@ -41,7 +41,7 @@
   };
 
   var state = { f1: "all", f2: "all", f3: "all", f4: "all", sort: "new", source: "" };
-  var PASS_KEY = "gallery-search-passcode";
+  var REQUEST_POLL_MS = 60000;
   var cards = [];
   var criteriaShown = false;
   var io = null;
@@ -576,11 +576,14 @@
     var out = [];
     records.forEach(function (row, index) {
       var createdAt = cell(row, "created_at");
+      var keyword = cell(row, "keyword");
+      var status = cell(row, "status");
+      if (!status && keyword) status = "排队中";
       var item = {
         request_id: cell(row, "request_id"),
-        keyword: cell(row, "keyword"),
+        keyword: keyword,
         note: cell(row, "note"),
-        status: cell(row, "status"),
+        status: status,
         createdAt: createdAt,
         createdMs: parseTime(createdAt),
         startedAt: cell(row, "started_at"),
@@ -597,11 +600,17 @@
     return out;
   }
 
+  function requestSortMs(row) {
+    if (row.createdMs != null) return row.createdMs;
+    if (row.status === "排队中" || row.status === "搜索中") return Infinity;
+    return -Infinity;
+  }
+
   function latestRequests(rows, limit) {
     var n = limit == null ? 10 : limit;
     return rows.slice().sort(function (a, b) {
-      var ta = a.createdMs == null ? -Infinity : a.createdMs;
-      var tb = b.createdMs == null ? -Infinity : b.createdMs;
+      var ta = requestSortMs(a);
+      var tb = requestSortMs(b);
       if (tb !== ta) return tb - ta;
       return b.index - a.index;
     }).slice(0, n);
@@ -1008,24 +1017,6 @@
     });
   }
 
-  function readStoredPass() {
-    try { return localStorage.getItem(PASS_KEY) || ""; } catch (e) { return ""; }
-  }
-
-  function writeStoredPass(value) {
-    try {
-      if (value) localStorage.setItem(PASS_KEY, value);
-      else localStorage.removeItem(PASS_KEY);
-    } catch (e) {}
-  }
-
-  function setSearchMessage(text, kind) {
-    var el = document.getElementById("search-msg");
-    if (!el) return;
-    el.textContent = text || "";
-    el.className = "search-msg" + (kind ? " " + kind : "");
-  }
-
   function renderRequestList(rows) {
     var host = document.getElementById("request-list");
     if (!host) return;
@@ -1057,7 +1048,7 @@
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
     if (!hasPending(rows)) return;
-    pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, 20000);
+    pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, REQUEST_POLL_MS);
   }
 
   function refreshRequests(cfg) {
@@ -1082,7 +1073,7 @@
       if (host && !host.querySelector(".req")) host.innerHTML = '<p class="meta">暂时读不到搜索请求。</p>';
       if (hasPendingMap(requestStatuses)) {
         if (pollTimer) clearTimeout(pollTimer);
-        pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, 20000);
+        pollTimer = setTimeout(function () { refreshRequests(activeCfg); }, REQUEST_POLL_MS);
       }
     });
   }
@@ -1120,32 +1111,9 @@
   }
 
   function setupSearch(cfg) {
-    var form = document.getElementById("search-form");
-    if (!form) return;
-    var keyword = document.getElementById("search-keyword");
-    var note = document.getElementById("search-note");
-    var pass = document.getElementById("search-pass");
-    var remember = document.getElementById("search-remember");
-    var submit = document.getElementById("search-submit");
-    var endpoint = String((cfg && cfg.APPS_SCRIPT_URL) || "").trim();
-    var stored = readStoredPass();
-    if (stored && pass && remember) {
-      pass.value = stored;
-      remember.checked = true;
-    }
-    if (!endpoint) {
-      [keyword, note, pass, remember, submit].forEach(function (el) { if (el) el.disabled = true; });
-      setSearchMessage("未配置", "bad");
-    }
-    if (remember && pass) {
-      remember.addEventListener("change", function () {
-        if (remember.checked) writeStoredPass(pass.value);
-        else writeStoredPass("");
-      });
-      pass.addEventListener("input", function () {
-        if (remember.checked) writeStoredPass(pass.value);
-      });
-    }
+    try { localStorage.removeItem("gallery-search-passcode"); } catch (e) {}
+    var open = document.getElementById("search-open");
+    if (open && cfg && cfg.requestsEditUrl) open.href = cfg.requestsEditUrl;
     var list = document.getElementById("request-list");
     if (list) {
       list.addEventListener("click", function (e) {
@@ -1162,60 +1130,6 @@
         render();
       });
     }
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      if (!endpoint) {
-        setSearchMessage("未配置", "bad");
-        return;
-      }
-      var word = keyword ? keyword.value.trim() : "";
-      var extra = note ? note.value.trim() : "";
-      var code = pass ? pass.value : "";
-      if (!word) {
-        setSearchMessage("请填写关键词", "bad");
-        return;
-      }
-      if (word.length > 60) {
-        setSearchMessage("关键词不能超过 60 个字", "bad");
-        return;
-      }
-      if (!String(code).trim()) {
-        setSearchMessage("请填写口令", "bad");
-        return;
-      }
-      if (remember && remember.checked) writeStoredPass(code);
-      if (submit) submit.disabled = true;
-      setSearchMessage("正在提交…", "");
-      fetch(endpoint, {
-        method: "POST",
-        mode: "cors",
-        credentials: "omit",
-        cache: "no-store",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ keyword: word, note: extra, passcode: code }),
-      }).then(function (res) {
-        return res.text().then(function (text) {
-          var data = {};
-          try { data = JSON.parse(text); } catch (err) { data = {}; }
-          if (!data.message) data.message = res.ok ? "成功" : "提交失败";
-          data.httpOk = res.ok;
-          return data;
-        });
-      }).then(function (data) {
-        setSearchMessage(data.message || "提交失败", data.ok ? "ok" : "bad");
-        if (data.ok && keyword) keyword.value = "";
-        if (data.ok && note) note.value = "";
-        if (!data.ok) return;
-        return refreshRequests(cfg).then(function () {
-          if (!pollTimer) pollTimer = setTimeout(function () { refreshRequests(cfg); }, 20000);
-        });
-      }).catch(function () {
-        setSearchMessage("提交失败", "bad");
-      }).then(function () {
-        if (submit && endpoint) submit.disabled = false;
-      });
-    });
   }
 
   function mount(doc) {
@@ -1269,6 +1183,7 @@
     completionNeedsItemsRefresh: completionNeedsItemsRefresh,
     statusMap: statusMap,
     requestChipClass: requestChipClass,
+    REQUEST_POLL_MS: REQUEST_POLL_MS,
     hasTicket: hasTicket,
     ticketText: ticketText,
     cardHtml: cardHtml,
