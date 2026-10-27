@@ -38,6 +38,30 @@ h1 span{background:linear-gradient(90deg,#c6ff3d,#3dd6ff);-webkit-background-cli
 .criteria summary:before{content:"▸";color:var(--mute);font-weight:400;margin-right:8px}
 .criteria[open] summary:before{content:"▾"}
 .casof{font-weight:400}
+.criteria-actions{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:400;flex:0 0 auto}
+.criteria-actions .btn,.criteria-actions .hint{white-space:nowrap}
+.btn.tiny{padding:4px 10px;font-size:12px}
+.search{margin-top:16px;border:1px solid var(--line);border-radius:16px;background:var(--card);padding:14px 16px 16px}
+.search h2,.search h3{margin:0;font-size:16px}
+.search h3{margin-top:14px;font-size:14px}
+.search-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}
+.search-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute);flex:1 1 180px}
+.search-form label.check{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;padding-bottom:8px}
+.search-form input{font:inherit;font-size:14px;color:var(--text);background:#101018;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.search-form input:disabled,.search-form .btn:disabled{opacity:.55;cursor:not-allowed}
+.search-msg{flex:1 1 100%;margin:0;min-height:1.4em;color:var(--text)}
+.search-msg.bad{color:#ffb4b4}
+.search-msg.ok{color:var(--green)}
+.reqs{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.req{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#12121a}
+.req-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.req-top strong{font-size:14px}
+.req .meta{margin-left:auto}
+.req a{font-size:12px}
+.chip.run{color:#3dd6ff;border-color:#1f4a5a}
+.source-banner{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;color:var(--mute);font-size:12px}
+.source-banner[hidden]{display:none}
+.source-banner strong{color:var(--text);font-weight:600}
 .cgroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:0 0 14px}
 .cgroup{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#12121a;min-width:0}
 .cgroup h3{margin:0;font-size:14px}
@@ -107,7 +131,8 @@ a{color:#9ad7ff}
   h1{font-size:26px}
   main{padding:8px 16px 48px;grid-template-columns:1fr}
   .asof{margin-left:0}
-  .tools .btn.primary{flex:1 1 100%;text-align:center}
+  .tools .btn.primary,.search-form .btn{flex:1 1 100%;text-align:center}
+  .criteria-actions{margin-left:0}
   .kvs,.crow{grid-template-columns:1fr}
   .kvs dt{margin-top:4px}
 }
@@ -147,9 +172,37 @@ a{color:#9ad7ff}
     <summary>
       <span>当前搜集标准</span>
       <span class="casof" id="criteria-asof"></span>
+      <span class="criteria-actions">
+        <a class="btn tiny" id="criteria-edit" target="_blank" rel="noopener noreferrer">微调标准</a>
+        <span class="hint">需表格编辑权限</span>
+      </span>
     </summary>
     <div class="cgroups" id="criteria-body"></div>
   </details>
+  <section class="search" id="search-panel">
+    <h2>手动搜索热点</h2>
+    <form class="search-form" id="search-form" autocomplete="off">
+      <label>关键词
+        <input id="search-keyword" name="keyword" type="text" maxlength="60" autocomplete="off">
+      </label>
+      <label>备注
+        <input id="search-note" name="note" type="text" maxlength="500" autocomplete="off">
+      </label>
+      <label>口令
+        <input id="search-pass" name="passcode" type="password" autocomplete="off">
+      </label>
+      <label class="check"><input id="search-remember" type="checkbox">记住口令</label>
+      <button class="btn primary" id="search-submit" type="submit">提交搜索</button>
+      <p class="search-msg" id="search-msg" role="status"></p>
+    </form>
+    <h3>搜索请求</h3>
+    <div id="request-list" class="meta">正在读取搜索请求…</div>
+  </section>
+  <div class="source-banner" id="source-banner" hidden>
+    <span>正在查看来源</span>
+    <strong id="source-banner-text"></strong>
+    <button class="btn tiny" id="source-clear" type="button">清除</button>
+  </div>
 </header>
 <main id="grid">
   <noscript><div class="state err">请启用 JavaScript 以加载表格。</div></noscript>
