@@ -1,14 +1,13 @@
 name: 保持 Pages 关闭
 
 # The public gallery must stay offline.
-# A push to main tries to delete the GitHub Pages site and does not upload
-# index.html, app.js, or config.js. If deletion is not permitted, the job
-# replaces the live site with a 404 page so the gallery is no longer served.
-# Do not restore the old deploy steps or set enablement to true.
+# This workflow does not run on push. The live site was already replaced with
+# a 404, and a later push must not redeploy Pages or the gallery.
+# workflow_dispatch retries deletion. It never uploads index.html, app.js, or
+# config.js. Do not restore the push trigger, the old deploy steps, or
+# enablement: true.
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:

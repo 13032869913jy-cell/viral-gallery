@@ -49,8 +49,10 @@
 
 ## 发布
 
-公开的 GitHub Pages 站点已关闭，必须保持关闭。不要在仓库 Settings → Pages 里重新打开，也不要把 `.github/workflows/pages.yml` 改回「推到 main 就部署合集」。
+公开的 GitHub Pages 站点必须保持关闭。不要在仓库 Settings → Pages 里重新打开，也不要把 `.github/workflows/pages.yml` 改回「推到 main 就部署合集」。
 
-页面源码可以留在仓库里。推到 `main` 时，工作流只会尝试删除 Pages 站点，不会再上传 `index.html`、`app.js`、`config.js`。如果令牌删不掉站点，工作流会用一个 404 页面盖掉现有站点，避免继续公开合集。
+页面源码可以留在仓库里。这个工作流不再在推送到 `main` 时运行，所以之后的提交不会重新部署 Pages。需要时只能手动运行它：它会再试一次删除 Pages，并且不会上传 `index.html`、`app.js`、`config.js`。
+
+当前令牌没有关闭 Pages 设置的权限（需要 administration）。站点因此还在，但公开地址只返回 404，不再提供合集。
 
 原站点地址不再提供服务：<https://13032869913jy-cell.github.io/viral-gallery/>
