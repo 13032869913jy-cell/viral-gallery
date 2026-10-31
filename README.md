@@ -49,8 +49,8 @@
 
 ## 发布
 
-推到 `main` 后，GitHub Actions 会把站点部署到 GitHub Pages。
+公开的 GitHub Pages 站点已关闭，必须保持关闭。不要在仓库 Settings → Pages 里重新打开，也不要把 `.github/workflows/pages.yml` 改回「推到 main 就部署合集」。
 
-如果第一次没有站点，请到仓库 **Settings → Pages → Source**，选择 **GitHub Actions**。工作流会尝试自动打开 Pages；仓库默认令牌有时没有权限代为开启，这时需要手动选一次来源。
+页面源码可以留在仓库里。推到 `main` 时，工作流只会尝试删除 Pages 站点，不会再上传 `index.html`、`app.js`、`config.js`。如果令牌删不掉站点，工作流会用一个 404 页面盖掉现有站点，避免继续公开合集。
 
-站点地址：<https://13032869913jy-cell.github.io/viral-gallery/>
+原站点地址不再提供服务：<https://13032869913jy-cell.github.io/viral-gallery/>

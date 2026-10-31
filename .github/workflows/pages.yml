@@ -1,4 +1,10 @@
-name: 部署静态页面
+name: 保持 Pages 关闭
+
+# The public gallery must stay offline.
+# A push to main tries to delete the GitHub Pages site and does not upload
+# index.html, app.js, or config.js. If deletion is not permitted, the job
+# replaces the live site with a 404 page so the gallery is no longer served.
+# Do not restore the old deploy steps or set enablement to true.
 
 on:
   push:
@@ -15,27 +21,72 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  unpublish:
+    runs-on: ubuntu-latest
+    outputs:
+      still_published: ${{ steps.check.outputs.still_published }}
+    steps:
+      - name: 关闭 GitHub Pages
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          repo="${{ github.repository }}"
+          code=$(curl -sS -o /tmp/pages-delete.json -w "%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${repo}/pages")
+          echo "delete_http=${code}"
+          if [ "$code" = "204" ] || [ "$code" = "404" ]; then
+            echo "still_published=false" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is disabled (HTTP ${code})."
+            exit 0
+          fi
+          echo "Delete Pages failed (HTTP ${code}). The gallery will be replaced with a 404."
+          python3 - <<'PY'
+          import json
+          try:
+              data = json.load(open("/tmp/pages-delete.json"))
+          except Exception:
+              raise SystemExit(0)
+          print("message:", data.get("message"))
+          print("status:", data.get("status"))
+          PY
+          echo "still_published=true" >> "$GITHUB_OUTPUT"
+
+  blank-404:
+    needs: unpublish
+    if: always() && needs.unpublish.outputs.still_published != 'false'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: 检出仓库
-        uses: actions/checkout@v5
-
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
         with:
-          # Try to turn Pages on and set the source to GitHub Actions.
-          # The default token sometimes cannot do this; if the step fails,
-          # set Settings → Pages → Source to GitHub Actions once.
-          enablement: true
+          # Do not turn Pages back on. This step only runs when deletion failed
+          # and a site is still published.
+          enablement: false
 
-      - name: 整理站点文件
+      - name: 只放 404，不发布合集
         run: |
           mkdir -p _site
-          cp index.html config.js app.js _site/
+          cat > _site/404.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+            <meta charset="utf-8">
+            <title>404</title>
+            <meta name="robots" content="noindex">
+          </head>
+          <body>
+            <p>这个页面已经关闭。</p>
+          </body>
+          </html>
+          EOF
 
       - name: 上传产物
         uses: actions/upload-pages-artifact@v4
